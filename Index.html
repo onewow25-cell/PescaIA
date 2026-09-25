@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PescIA">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PescIA - Tu Asistente Inteligente de Pesca</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: '#0f172a',
+                        navy_light: '#1e293b',
+                        emerald_custom: '#10b981',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; -webkit-tap-highlight-color: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .map-bg { background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%), url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxjaXJjbGUgY3g9IjIiIGN5PSIyIiByPSIxIiBmaWxsPSIjMzM0MTU1Ii8+Cjwvc3ZnPg=='); }
+        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('inicio');
+            const [aiScansLeft, setAiScansLeft] = useState(3);
+            const [showPremiumModal, setShowPremiumModal] = useState(false);
+
+            // Trigger Premium
+            const triggerPremium = () => setShowPremiumModal(true);
+
+            return (
+                <div className="flex flex-col h-screen max-w-md mx-auto bg-navy relative overflow-hidden shadow-2xl border-x border-navy_light">
+                    {/* Header */}
+                    <div className="px-5 py-4 flex justify-between items-center bg-navy_light/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-700">
+                        <div className="flex items-center gap-2">
+                            <i className="fa-solid fa-fish-fins text-emerald_custom text-2xl"></i>
+                            <h1 className="text-xl font-bold text-white tracking-wide">Pesc<span className="text-emerald_custom">IA</span></h1>
+                        </div>
+                        <button onClick={triggerPremium} className="text-xs bg-gradient-to-r from-amber-500 to-amber-300 text-slate-900 font-bold px-3 py-1.5 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+                            <i className="fa-solid fa-crown mr-1"></i> PRO
+                        </button>
+                    </div>
+
+                    {/* Contenido Desplazable */}
+                    <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+                        {activeTab === 'inicio' && <TabInicio triggerPremium={triggerPremium} />}
+                        {activeTab === 'mapa' && <TabMapa />}
+                        {activeTab === 'escaner' && <TabEscaner scansLeft={aiScansLeft} setScansLeft={setAiScansLeft} triggerPremium={triggerPremium} />}
+                        {activeTab === 'guia' && <TabGuia />}
+                    </div>
+
+                    {/* Bottom Navigation Bar */}
+                    <div className="fixed bottom-0 w-full max-w-md bg-navy_light border-t border-slate-700 px-6 py-3 flex justify-between items-center z-20 pb-safe">
+                        <NavButton icon="fa-house-tsunami" label="Inicio" active={activeTab === 'inicio'} onClick={() => setActiveTab('inicio')} />
+                        <NavButton icon="fa-map-location-dot" label="Zonas" active={activeTab === 'mapa'} onClick={() => setActiveTab('mapa')} />
+                        
+                        {/* Botón Central Escáner */}
+                        <div className="relative -top-6">
+                            <button onClick={() => setActiveTab('escaner')} className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg shadow-emerald_custom/30 transition-transform ${activeTab === 'escaner' ? 'bg-emerald_custom text-navy scale-110' : 'bg-slate-700 text-emerald_custom hover:bg-slate-600'}`}>
+                                <i className="fa-solid fa-camera-retro"></i>
+                            </button>
+                        </div>
+
+                        <NavButton icon="fa-book-open-reader" label="Guía" active={activeTab === 'guia'} onClick={() => setActiveTab('guia')} />
+                    </div>
+
+                    {/* Modal Premium */}
+                    {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+                </div>
+            );
+        };
+
+        /* ======= COMPONENTES DE PESTAÑAS ======= */
+
+        // PESTAÑA 1: INICIO Y MAREAS
+        const TabInicio = ({ triggerPremium }) => (
+            <div className="p-5 space-y-6 animate-fade-in">
+                {/* Buscador y GPS */}
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400"></i>
+                        <input type="text" placeholder="Buscar pesquero..." className="w-full bg-slate-800 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none border border-slate-700 focus:border-emerald_custom" />
+                    </div>
+                    <button className="bg-emerald_custom text-navy w-11 rounded-xl flex items-center justify-center shadow-md">
+                        <i className="fa-solid fa-location-crosshairs text-lg"></i>
+                    </button>
+                </div>
+
+                {/* Clima Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-800 rounded-2xl p-4 flex items-center gap-3">
+                        <i className="fa-solid fa-temperature-half text-2xl text-orange-400"></i>
+                        <div><p className="text-xs text-slate-400">Temperatura</p><p className="font-bold">22°C</p></div>
+                    </div>
+                    <div className="bg-slate-800 rounded-2xl p-4 flex items-center gap-3">
+                        <i className="fa-solid fa-wind text-2xl text-cyan-400"></i>
+                        <div><p className="text-xs text-slate-400">Viento (NO)</p><p className="font-bold">28 km/h</p></div>
+                    </div>
+                    <div className="bg-slate-800 rounded-2xl p-4 flex items-center gap-3">
+                        <i className="fa-solid fa-gauge-high text-2xl text-purple-400"></i>
+                        <div><p className="text-xs text-slate-400">Presión</p><p className="font-bold">1015 hPa</p></div>
+                    </div>
+                    <div className="bg-slate-800 rounded-2xl p-4 flex items-center gap-3">
+                        <i className="fa-solid fa-moon text-2xl text-yellow-100"></i>
+                        <div><p className="text-xs text-slate-400">Fase Lunar</p><p className="font-bold text-sm">Creciente</p></div>
+                    </div>
+                </div>
+
+                {/* Solunar Chart */}
+                <div className="bg-slate-800 rounded-2xl p-5 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-sm font-semibold text-slate-300">Actividad del Pesquero</h3>
+                        <p className="text-3xl font-bold text-emerald_custom mt-1">85%</p>
+                        <p className="text-xs text-emerald-400 bg-emerald_custom/10 inline-block px-2 py-1 rounded mt-2">Momento Óptimo</p>
+                    </div>
+                    <div className="relative w-20 h-20">
+                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path className="stroke-slate-700" strokeWidth="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path className="stroke-emerald_custom" strokeWidth="3" strokeDasharray="85, 100" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                        <i className="fa-solid fa-fish absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xl text-slate-300"></i>
+                    </div>
+                </div>
+
+                {/* TARJETA RECOMENDADA (Trigger Premium) */}
+                <div className="bg-gradient-to-br from-navy_light to-slate-800 border border-emerald_custom/30 rounded-2xl p-5 relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald_custom/20 rounded-full blur-xl"></div>
+                    <div className="flex justify-between items-start mb-3">
+                        <h3 className="text-emerald_custom font-bold text-sm flex items-center gap-2">
+                            <i className="fa-solid fa-wand-magic-sparkles"></i> RECOMENDACIÓN IA
+                        </h3>
+                        <span className="bg-emerald_custom text-navy text-xs font-bold px-2 py-1 rounded-md">92% Éxito</span>
+                    </div>
+                    <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                        Hoy hace demasiado viento (28km/h) en playa abierta. Te recomendamos pescar en el <strong className="text-white">Espigón de Levante</strong>, zona protegida del viento del Noroeste.
+                    </p>
+                    <button onClick={triggerPremium} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex justify-center items-center gap-2">
+                        Ver ruta en el mapa <i className="fa-solid fa-lock text-amber-400 text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        );
+
+        // PESTAÑA 2: MAPA DE ZONAS
+        const TabMapa = () => {
+            const [selectedSpot, setSelectedSpot] = useState(null);
+
+            const spots = [
+                { id: 1, name: 'Espigón de Levante', dist: '2.4 km', prot: 'Alta', fish: 'Sargo, Dorada', top: '40%', left: '30%' },
+                { id: 2, name: 'Playa de las Rocas', dist: '5.1 km', prot: 'Baja', fish: 'Lubina, Herrera', top: '70%', left: '60%' },
+                { id: 3, name: 'Desembocadura Río', dist: '8.0 km', prot: 'Media', fish: 'Corvina, Róbalo', top: '25%', left: '75%' }
+            ];
+
+            return (
+                <div className="relative h-full w-full map-bg flex flex-col">
+                    <div className="absolute top-4 left-0 w-full px-4 z-10 flex gap-2 overflow-x-auto hide-scrollbar">
+                        <button className="bg-emerald_custom text-navy px-4 py-1.5 rounded-full text-sm font-bold shadow-lg whitespace-nowrap">Todas</button>
+                        <button className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-sm font-semibold border border-slate-600 whitespace-nowrap">Agua Salada</button>
+                        <button className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-sm font-semibold border border-slate-600 whitespace-nowrap">Agua Dulce</button>
+                    </div>
+
+                    {/* Simulated Map Markers */}
+                    <div className="relative flex-1">
+                        <div className="absolute top-[50%] left-[50%] w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(59,130,246,0.8)] z-10"></div>
+                        {spots.map(spot => (
+                            <div key={spot.id} onClick={() => setSelectedSpot(spot)} className="absolute flex flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110" style={{ top: spot.top, left: spot.left }}>
+                                <i className="fa-solid fa-location-dot text-emerald_custom text-3xl drop-shadow-lg"></i>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Spot Detail Bottom Sheet */}
+                    {selectedSpot && (
+                        <div className="absolute bottom-4 left-4 right-4 bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-2xl animate-fade-in z-20">
+                            <div className="flex justify-between items-start mb-2">
+                                <h3 className="text-lg font-bold text-white">{selectedSpot.name}</h3>
+                                <button onClick={() => setSelectedSpot(null)}><i className="fa-solid fa-times text-slate-400"></i></button>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-slate-300 mb-3">
+                                <span><i className="fa-solid fa-route text-emerald_custom"></i> {selectedSpot.dist}</span>
+                                <span><i className="fa-solid fa-shield-halved text-emerald_custom"></i> Prot: {selectedSpot.prot}</span>
+                            </div>
+                            <div className="bg-slate-900 rounded-lg p-2.5 mb-4">
+                                <p className="text-xs text-slate-400 mb-1">Especies Frecuentes:</p>
+                                <p className="text-sm font-semibold">{selectedSpot.fish}</p>
+                            </div>
+                            <button className="w-full bg-emerald_custom text-navy font-bold py-2.5 rounded-xl flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-location-arrow"></i> Cómo llegar
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // PESTAÑA 3: ESCANEAR PESQUERO CON IA
+        const TabEscaner = ({ scansLeft, setScansLeft, triggerPremium }) => {
+            const [status, setStatus] = useState('idle'); // idle, scanning, result
+
+            const handleScan = () => {
+                if (scansLeft <= 0) {
+                    triggerPremium();
+                    return;
+                }
+                setStatus('scanning');
+                setTimeout(() => {
+                    setScansLeft(scansLeft - 1);
+                    setStatus('result');
+                }, 2500); // simulate AI thinking
+            };
+
+            if (status === 'scanning') {
+                return (
+                    <div className="flex flex-col items-center justify-center h-full space-y-6">
+                        <div className="relative w-32 h-32 flex items-center justify-center">
+                            <div className="absolute w-full h-full border-4 border-slate-700 rounded-full"></div>
+                            <div className="absolute w-full h-full border-4 border-emerald_custom rounded-full border-t-transparent animate-spin"></div>
+                            <i className="fa-solid fa-microchip text-4xl text-emerald_custom animate-pulse"></i>
+                        </div>
+                        <h2 className="text-lg font-bold text-white">Analizando topografía y agua...</h2>
+                        <p className="text-sm text-slate-400">Aplicando modelos de IA pesquera</p>
+                    </div>
+                );
+            }
+
+            if (status === 'result') {
+                return (
+                    <div className="p-5 space-y-4 animate-fade-in">
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-xl font-bold">Resultados IA</h2>
+                            <button onClick={() => setStatus('idle')} className="text-sm text-emerald_custom underline">Escanear otro</button>
+                        </div>
+                        
+                        {/* Fake Uploaded Image Preview */}
+                        <div className="h-40 bg-slate-700 rounded-xl relative overflow-hidden bg-[url('https://images.unsplash.com/photo-1505672678657-cc7037095e60?q=80&w=600&auto=format&fit=crop')] bg-cover bg-center border border-emerald_custom/50">
+                            <div className="absolute inset-0 bg-emerald_custom/20"></div>
+                            <div className="absolute top-1/2 left-1/3 w-12 h-12 border-2 border-emerald_custom border-dashed rounded-full animate-pulse-fast flex items-center justify-center bg-navy/40 backdrop-blur-sm">
+                                <i className="fa-solid fa-crosshairs text-emerald_custom"></i>
+                            </div>
+                            <span className="absolute bottom-2 right-2 bg-navy/80 px-2 py-1 rounded text-xs font-bold"><i className="fa-solid fa-check text-emerald_custom"></i> Entorno validado</span>
+                        </div>
+
+                        {/* Cards de Resultados */}
+                        <div className="grid grid-cols-1 gap-4 mt-4">
+                            <ResultCard icon="fa-map" title="Diagnóstico de Entorno" desc="Estructura rocosa mixta con canal de arena. La postura de lance ideal es a las 11 en punto, apuntando al claro entre las rocas sumergidas (ver visor)." />
+                            <ResultCard icon="fa-fish" title="Especies Probables" desc="1. Lubina / Róbalo (75%) - Caza en la espuma. <br/> 2. Sargo (60%) - Merodeando rocas." />
+                            <ResultCard icon="fa-toolbox" title="Equipo Recomendado" desc="Caña de Spinning 2.7m (Acción 15-40g). Carrete tamaño 3000 o 4000. Línea trenzada de 0.15mm con bajo de fluorocarbono 0.30mm." />
+                            <ResultCard icon="fa-worm" title="Montaje y Cebo Ideal" desc="Montaje directo con vinilo tipo Shad (12g) color perlado o blanco. Alternativa: Minnow flotante de 11cm." />
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="p-5 flex flex-col h-full">
+                    <div className="text-center mb-6 mt-4">
+                        <h2 className="text-2xl font-bold mb-2">Escáner de Pesqueros</h2>
+                        <p className="text-slate-400 text-sm">Sube una foto del agua, playa o rocas y la IA te dirá cómo y qué pescar.</p>
+                    </div>
+
+                    <div className="flex-1 bg-slate-800/50 border-2 border-dashed border-slate-600 rounded-2xl flex flex-col items-center justify-center p-6 gap-4 mb-6">
+                        <div className="w-20 h-20 bg-slate-700 rounded-full flex items-center justify-center">
+                            <i className="fa-solid fa-cloud-arrow-up text-3xl text-emerald_custom"></i>
+                        </div>
+                        <p className="text-slate-300 font-medium">Sube o toma una foto del lugar</p>
+                        <div className="flex gap-3 w-full mt-2">
+                            <button className="flex-1 bg-slate-700 py-3 rounded-xl text-sm font-semibold hover:bg-slate-600 flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-image"></i> Galería
+                            </button>
+                            <button className="flex-1 bg-slate-700 py-3 rounded-xl text-sm font-semibold hover:bg-slate-600 flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-camera"></i> Cámara
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mb-4 text-center">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            Escaneos restantes: <span className={scansLeft > 0 ? "text-emerald_custom" : "text-amber-500"}>{scansLeft}/3</span>
+                        </span>
+                    </div>
+
+                    <button onClick={handleScan} className="w-full bg-emerald_custom text-navy font-bold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald_custom/20 hover:bg-emerald-400 transition-colors">
+                        <i className="fa-solid fa-wand-magic-sparkles"></i> Analizar Entorno con IA
+                    </button>
+                </div>
+            );
+        };
+
+        const ResultCard = ({ icon, title, desc }) => (
+            <div className="bg-slate-800 rounded-xl p-4 border-l-4 border-emerald_custom shadow-md">
+                <h3 className="text-emerald_custom font-bold text-sm mb-1 flex items-center gap-2">
+                    <i className={`fa-solid ${icon}`}></i> {title}
+                </h3>
+                <p className="text-slate-300 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: desc}}></p>
+            </div>
+        );
+
+        // PESTAÑA 4: GUÍA Y EQUIPO
+        const TabGuia = () => {
+            const categories = ['Surfcasting', 'Spinning', 'Rockfishing', 'Corcheo'];
+            const [cat, setCat] = useState('Surfcasting');
+
+            return (
+                <div className="p-5">
+                    <h2 className="text-xl font-bold mb-4">Catálogo de Montajes</h2>
+                    
+                    {/* Filtros */}
+                    <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6">
+                        {categories.map(c => (
+                            <button key={c} onClick={() => setCat(c)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${cat === c ? 'bg-emerald_custom text-navy' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                                {c}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Contenido Guía */}
+                    <div className="space-y-4">
+                        <div className="bg-slate-800 rounded-2xl overflow-hidden shadow-lg border border-slate-700">
+                            <div className="h-32 bg-slate-700 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1595188824144-88484e5659cb?q=80&w=500&auto=format&fit=crop')] bg-cover bg-center">
+                                <div className="bg-navy/60 w-full h-full flex items-center justify-center backdrop-blur-[2px]">
+                                    <h3 className="text-2xl font-bold tracking-widest text-white uppercase">{cat}</h3>
+                                </div>
+                            </div>
+                            <div className="p-4">
+                                <h4 className="text-emerald_custom font-bold mb-2">Montaje Bajo de Línea (Urfe)</h4>
+                                <p className="text-sm text-slate-300 mb-4">Ideal para evitar enredos en aguas con corrientes fuertes. Permite un cambio rápido de plomo.</p>
+                                
+                                <h4 className="font-semibold text-white mb-2 text-sm">Cebos recomendados:</h4>
+                                <div className="flex gap-2">
+                                    <span className="bg-slate-700 text-xs px-2 py-1 rounded">Coreano</span>
+                                    <span className="bg-slate-700 text-xs px-2 py-1 rounded">Tita</span>
+                                    <span className="bg-slate-700 text-xs px-2 py-1 rounded">Navaja</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex items-center gap-4">
+                            <div className="w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center text-emerald_custom text-2xl">
+                                <i className="fa-solid fa-book-open"></i>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-white">Nudos Básicos</h4>
+                                <p className="text-xs text-slate-400">Guía paso a paso: Palomar, Sangre, Snell...</p>
+                            </div>
+                            <i className="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // NAVIGATION BUTTON COMPONENT
+        const NavButton = ({ icon, label, active, onClick }) => (
+            <button onClick={onClick} className={`flex flex-col items-center w-16 transition-colors ${active ? 'text-emerald_custom' : 'text-slate-500 hover:text-slate-300'}`}>
+                <i className={`fa-solid ${icon} text-xl mb-1 ${active ? 'animate-bounce' : ''}`} style={{animationIterationCount: 1}}></i>
+                <span className="text-[10px] font-semibold">{label}</span>
+            </button>
+        );
+
+        // MODAL PREMIUM (PAYWALL)
+        const PremiumModal = ({ onClose }) => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/80 backdrop-blur-sm animate-fade-in">
+                <div className="bg-gradient-to-b from-slate-800 to-navy rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-amber-500/30 relative">
+                    <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+                        <i className="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                    
+                    <div className="w-16 h-16 bg-gradient-to-tr from-amber-600 to-amber-300 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
+                        <i className="fa-solid fa-crown text-3xl text-navy"></i>
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-center text-white mb-2">Desbloquea Pesc<span className="text-emerald_custom">IA</span> PRO</h2>
+                    <p className="text-center text-slate-300 text-sm mb-6">Has alcanzado el límite de la versión gratuita. Sube de nivel tu pesca.</p>
+
+                    <ul className="space-y-3 mb-6">
+                        <li className="flex items-center gap-3 text-sm"><i className="fa-solid fa-check-circle text-emerald_custom text-lg"></i> Escáner IA <b>Ilimitado</b></li>
+                        <li className="flex items-center gap-3 text-sm"><i className="fa-solid fa-check-circle text-emerald_custom text-lg"></i> Zonas Recomendadas por Clima</li>
+                        <li className="flex items-center gap-3 text-sm"><i className="fa-solid fa-check-circle text-emerald_custom text-lg"></i> Mapas de Calor de Especies</li>
+                        <li className="flex items-center gap-3 text-sm"><i className="fa-solid fa-check-circle text-emerald_custom text-lg"></i> Sin Anuncios</li>
+                    </ul>
+
+                    <div className="text-center mb-6">
+                        <span className="text-4xl font-black text-amber-400">$3.99</span><span className="text-slate-400">/mes</span>
+                    </div>
+
+                    <button onClick={onClose} className="w-full bg-gradient-to-r from-amber-500 to-amber-400 text-navy font-black text-lg py-3.5 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.5)] transform transition hover:scale-105">
+                        Suscribirse Ahora
+                    </button>
+                    <p className="text-center text-xs text-slate-500 mt-4">Cancela en cualquier momento.</p>
+                </div>
+            </div>
+        );
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => console.log('PWA lista:', reg.scope))
+        .catch((err) => console.error('Error PWA:', err));
+    });
+  }
+</script>
+</body>
+</html>
